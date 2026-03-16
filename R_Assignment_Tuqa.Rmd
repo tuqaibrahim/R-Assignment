@@ -1,6 +1,6 @@
 ---
 title: "R Markdown"
-author: "Tuqa"
+author: "Tuqa Ibrahim"
 date: "2026-03-15"
 output: html_document
 ---
@@ -11,8 +11,12 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
 library(tidyverse)
 ```
+#Introduction
+In this report, we aim to analyse two input files:
+- fang_et_al_genotypes.txt: it contains SNP genotype data from  maize, teosinte and Tripsacum samples.
 
-```{r load-data}
+- snp_position.txt: it contains information about the SNPs in the fang_et_al_genotypes.tx including SNP id, chromosome location, nucleotide location, and other information.
+```{r}
 genotypes <- read_tsv("data/fang_et_al_genotypes.txt")
 snp_positions <- read_tsv("data/snp_position.txt")
 
