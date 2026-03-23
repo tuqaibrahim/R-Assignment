@@ -1,0 +1,23 @@
+### Review for Tuqa
+
+## Data Inspection
+#Strengths:
+
+Detailed Inspection: At start, using sapply(..., class) and unique() on specific columns shows more details.
+
+Clear Documentation: The use of Markdown headers and descriptive text between code chunks makes this report very easy to read as a standalone document.
+
+#Suggestions for Improvement:
+
+The "Double Transpose" Complexity: Manually transposing, setting column names from a vector, and then handling row names is a bit fragile because if the row order ever changed, the data could become mismatched. Using tidyr::pivot_longer is generally safer for the initial join.
+
+
+
+## Visualization
+#Strengths:
+
+File Export: Including ggsave() commands looks great for reproducible research, ensuring the plots are saved as high-quality images automatically.
+
+#Suggestions for Improvement:
+
+Efficiency: For the polymorphic SNP check, apply on a large dataframe can be slow in R. If the dataset were much larger, using rowSums() or dplyr grouped operations could be better for the speed.
