@@ -1,0 +1,61 @@
+Peer Review for Tuqa Ibrahim  
+
+Reviewer: Nesreen Sedeek
+
+Repository & README
+Organization: The repository is organized and clear to go through. It might be a good idea to seperate the ascending and descending files? I really liked the provided instructions in the Read.me for your git.
+
+Reproducibility: I was able to clone the repo and found the files organized and went through them.
+
+Data Inspection
+Execution: The author provided different commands to inspect the data correctly, however there could be more commands added for the inspection like number of rows and coloumns. 
+Clarity: The commands are clear and easy to use for data information and the intstructions are clear and it might be a good idea to use the # before them.
+
+Data Processing
+Troubleshooting:
+
+''' maize <- filter(genotypes, Group %in% c("ZMMIL", "ZMMLR", "ZMMMR")) '''
+# This command doesn't want to run because we have to load the library (dplyr) first, you probably forgot to include that.
+
+### The loop for lapply didn't run as well, you can follow this as a recommendation 
+
+# 2. Create the output folder
+dir.create("output/processed_files/", recursive = TRUE)
+
+# 3. Define the function
+create_chromosome_files <- function(df, group) {
+  lapply(1:10, function(chromosome_number) {
+    chromosome_df <- dplyr::filter(df, Chromosome == chromosome_number)
+    
+    chromosome_increasing_order <- chromosome_df %>%
+      arrange(Position) %>%
+      mutate(across(4:ncol(.), ~replace(., . == "?/?", "?")))
+    
+    chromosome_decreasing_order <- chromosome_df %>%
+      arrange(desc(Position)) %>%
+      mutate(across(4:ncol(.), ~replace(., . == "?/?", "-")))
+    
+    write_tsv(chromosome_increasing_order,
+      paste0("output/processed_files/", group, "_chromosome", chromosome_number, "_increasing_order.txt"))
+    
+    write_tsv(chromosome_decreasing_order,
+      paste0("output/processed_files/", group, "_chromosome", chromosome_number, "_decreasing_order.txt"))
+  })
+}
+
+# 4. Run the function
+create_chromosome_files(maize_all_joined, "maize")
+
+# 5. Verify files were created
+list.files("output/processed_files/")
+
+
+Accuracy: I checked the 40 required files (Maize and Teosinte) were generated and are located in the correct output folders. Most of the commands were accurate but not reproducible due to certain issues that I commented on.
+
+Formatting: I went through the author coding, Coding Style: The use of custom functions to automate file generation is efficient and much more readable than nested loops.
+
+Visualization
+SNP Distribution: Plots are showing SNP counts across chromosomes also comparing Maize vs. Teosinte distribution. Genotype Proportion: The proportion ploteffectively uses position = "fill" to show Homozygous/Heterozygous/Missing ratios. Personal Plots provides a good understanding of samples diversity.
+
+Summary & Suggestions
+Conclusion: This is a professional, well-structured, and fully reproducible submission.
