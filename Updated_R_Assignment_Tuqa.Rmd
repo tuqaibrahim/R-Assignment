@@ -1,0 +1,467 @@
+---
+title: "Updated R Assignment: Explicit Output Folder Creation and Separate Review Output Files" 
+author: "Tuqa Ibrahim"
+date: "2026-03-15"
+output: html_document
+---
+
+Disclaimer: This updated version includes an explicit step to create the output folder so the code will not fail if the reviewer does not download the full repository or does not run the code from within the repository directory. It also writes generated files to a separate review output folder, so they can be compared with the original output files already included in the repository. Running this analysis code will regenerate the files in `output/reviewer_processed_files/` and `output/reviewer_visuals/`. These regenerated files can be compared with the versions already included in the repository after downloading or cloning it from GitHub, found in `output/processed_files/` and `output/visuals/`.
+
+```{r setup, include=FALSE}
+
+
+knitr::opts_chunk$set(echo = TRUE)
+
+rm(list = ls())
+library(tidyverse)
+
+
+```
+
+
+# Introduction
+
+
+In this report, we analyze two input files:
+
+- `fang_et_al_genotypes.txt`: contains SNP genotype data from maize, teosinte, and Tripsacum samples.
+
+- `snp_position.txt`: contains information about the SNPs in `fang_et_al_genotypes.txt`, including SNP ID, chromosome location, nucleotide position, and other related information.
+
+
+This report has three main parts: data inspection, data processing, and data visualization.
+
+
+## Data Inspection
+
+
+In this part, we examine the input data files to understand their structure, dimensions, data types, and general organization.
+
+
+We begin by loading the two input files: the genotype dataset and the SNP position dataset into R using 'read_tsv()'.
+
+
+```{r}
+
+
+#Read the files
+genotypes <- read_tsv("data/fang_et_al_genotypes.txt", show_col_types = FALSE)
+snp_positions <- read_tsv("data/snp_position.txt", show_col_types = FALSE)
+
+
+```
+
+
+By inspecting the two files, we learn their dimensions, column names, data types, and examine a preview of the first rows.
+
+ 
+```{r inspect data}
+
+
+#Inspect the data 
+dim(genotypes)
+dim(snp_positions)
+
+names(genotypes)[1:15]
+names(snp_positions)
+
+head(genotypes)
+head(snp_positions)
+
+sapply(genotypes [1:15], class)
+sapply(snp_positions, class)
+
+unique(genotypes[[3]])
+
+
+```
+
+
+## Data Processing
+
+
+The genotype data is filtered to keep only maize and teosinte samples. We exclude Tripsacum because the assignment focuses only on maize and teosinte. The genotype data is split into maize (Group = ZMMIL, ZMMLR, and ZMMMR) and teosinte (Group = ZMPBA, ZMPIL, and ZMPJA) genotype files.
+
+
+```{r}
+
+
+#Filter maize and teosinte groups
+maize <- filter(genotypes, Group %in% c("ZMMIL", "ZMMLR", "ZMMMR"))
+teosinte <- filter(genotypes, Group %in% c("ZMPBA", "ZMPIL", "ZMPJA"))
+
+
+```
+
+
+After filtering, we separate the metadata columns from the SNP genotype columns so that only the genotype data are used for downstream SNP processing. 
+
+
+```{r}
+
+
+#Remove metadata and create new genotype files for maize and teosinte keeping only the SNPs genotypes columns
+genotype_columns <- 4:ncol(genotypes)
+maize_genotypes <- maize[, genotype_columns]
+teosinte_genotypes <- teosinte[, genotype_columns]
+
+
+```
+
+
+Now we transpose these files so that each row represents a SNP ID rather than a sample ID. For the transposed dataframe, we need a proper SNP_ID column, so we convert the SNP identifiers from row names into a proper SNP_ID column, and the sample IDs are assigned as column names. After reordering columns so SNP_ID comes first, the gynotype files is ready a for merging with the SNP position information.
+
+
+```{r}
+
+
+#Transpose the genotype files
+maize_transpose <- as.data.frame(t(maize_genotypes))
+teosinte_transpose <- as.data.frame(t(teosinte_genotypes))
+
+#Take the sample names from original files and use it as column names for the transposed files
+colnames(maize_transpose) <- maize[[1]]
+colnames(teosinte_transpose) <- teosinte[[1]]
+
+#Make the row names in the transposed files a real column called SNP_ID
+maize_transpose$SNP_ID <- rownames(maize_transpose)
+teosinte_transpose$SNP_ID <- rownames(teosinte_transpose)
+
+#Reorder columns so SNP_ID comes first
+maize_transpose <- select(maize_transpose, SNP_ID, everything())
+teosinte_transpose <- select(teosinte_transpose, SNP_ID, everything())
+
+#Remove row names
+rownames(maize_transpose) <- NULL
+rownames(teosinte_transpose) <- NULL
+
+
+```
+
+
+We need only specific columns from the SNP position dataset, so we reduce it to the three relevant columns: SNP_ID, Chromosome, and Position. 
+
+
+```{r}
+
+
+#Keep only the three requested columns in the SNP position file
+snp_important_info <- select(snp_positions, 1, 3, 4)
+
+
+```
+
+
+These columns are joined with the transposed maize and teosinte genotype datasets using 'inner_join()' to keep only the matched rows in the two files.
+
+
+```{r}
+
+
+#Joining SNP position info to the transposed genotype data
+maize_all_joined <- inner_join(snp_important_info, maize_transpose, by = "SNP_ID")
+teosinte_all_joined <- inner_join(snp_important_info, teosinte_transpose, by = "SNP_ID")
+
+
+```
+
+
+After transposing, the format of the chromosome and position columns changed, so we convert them back to the numeric format so we can sort them correctly. In addition, all rows with missing chromosome or position values are removed.
+
+
+```{r message=FALSE, warning=FALSE}
+
+
+#Check the class of Chromosome and Position columns
+class(maize_all_joined$Chromosome)
+class(maize_all_joined$Position)
+
+#Converting Chromosome and Position columns into numeric so they can be sorted
+maize_all_joined <- mutate(maize_all_joined, Chromosome = as.numeric(Chromosome), Position = as.numeric(Position))
+teosinte_all_joined <- mutate(teosinte_all_joined, Chromosome = as.numeric(Chromosome), Position = as.numeric(Position))
+
+#Check the new class of Chromosome and Position columns
+class(maize_all_joined$Chromosome)
+class(maize_all_joined$Position)
+
+
+```
+
+```{r}
+
+
+#remove rows with missing chromosome or position 
+maize_all_joined <- filter(maize_all_joined, !is.na(Chromosome), !is.na(Position))
+teosinte_all_joined <- filter(teosinte_all_joined, !is.na(Chromosome), !is.na(Position))
+
+
+```
+
+
+A special function is then created to generate chromosome-specific output files for both maize and teosinte. It generates two files for each chromosome from 1 to 10: one sorted in increasing genomic position and one sorted in decreasing genomic position. In addition, missing genotype data (?/?) are encoded by this symbol: "?" and this symbol: "-" as required by the assignment. 
+
+```{r}
+dir.create("output/reviewer_processed_files", recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r}
+
+
+#Define a function to generate chromosome files
+create_chromosome_files <- function(df, group) {
+  lapply(1:10, function(chromosome_number) {
+    
+    chromosome_df <- filter(df, Chromosome == chromosome_number)
+    
+    chromosome_increasing_order <- chromosome_df %>%
+      arrange(Position) %>%
+      mutate(across(4:ncol(.), ~replace(., . == "?/?", "?")))
+    
+    chromosome_decreasing_order <- chromosome_df %>%
+      arrange(desc(Position)) %>%
+      mutate(across(4:ncol(.), ~replace(., . == "?/?", "-")))
+    
+    write_tsv(
+      chromosome_increasing_order,
+      paste0("output/reviewer_processed_files/", group, "_chromosome", chromosome_number, "_increasing_order.txt")
+    )
+    
+    write_tsv(
+      chromosome_decreasing_order,
+      paste0("output/reviewer_processed_files/", group, "_chromosome", chromosome_number, "_decreasing_order.txt")
+    )
+  })
+}
+
+
+```
+
+```{r results='hide'}
+
+
+# Create the chromosome files
+create_chromosome_files(maize_all_joined, "maize")
+create_chromosome_files(teosinte_all_joined, "teosinte")
+
+
+```
+
+
+## Data Visualization
+
+
+For the first visualization, we generate a bar plot showing the total number of SNP positions per chromosome for maize and teosinte. 
+
+```{r}
+dir.create("output/reviewer_visuals", recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r}
+
+
+#Generate the first plot (Positions per chromosome)
+maize_modified_for_plot <- maize_all_joined %>%
+  select(SNP_ID, Chromosome, Position) %>%
+  mutate(Group = "Maize")
+
+teosinte_modified_for_plot <- teosinte_all_joined %>%
+  select(SNP_ID, Chromosome, Position) %>%
+  mutate(Group = "Teosinte")
+
+total_snp_modified_for_plot <- bind_rows(maize_modified_for_plot, teosinte_modified_for_plot)
+
+p1 <- ggplot(total_snp_modified_for_plot, aes(x = factor(Chromosome), fill = Group)) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Number of positions per Chromosome",
+    x = "Chromosome",
+    y = "Number of positions"
+  ) 
+p1
+#Save plot
+ggsave("output/reviewer_visuals/positions_per_chromosome.png", plot = p1, width = 8, height = 5)
+
+
+```
+ 
+ 
+This plot shows that both maize and teosinte have the same total number of positions, which is expected because both groups are joined to the same SNP position file. However, not every position represents a truly polymorphic SNP. To address this, we identify the SNP positions that show variation in genotype across individuals.
+
+
+To check for polymorphic SNPs, each SNP row is tested for variation across individuals within the maize group and within the teosinte group. We exclude missing genotype data from this check. A SNP is classified as a polymorphic SNP if more than one unique genotype (non-missing) is present among individuals. Then, we count the polymorphic SNPs per chromosome and visualize them in the second bar plot.
+
+
+```{r}
+
+
+#Generate the second plot (SNPs per chromosome)
+polymolrphic_SNPs_in_maize <- maize_all_joined %>%
+  mutate(
+    Polymorphic = apply(select(., 4:ncol(.)), 1, function(x) {
+      x <- x[!x %in% c("?/?")]
+      length(unique(x)) > 1
+    })
+  )
+
+polymorphic_SNPs_in_teosinte <- teosinte_all_joined %>%
+  mutate(
+    Polymorphic = apply(select(., 4:ncol(.)), 1, function(x) {
+      x <- x[!x %in% c("?/?")]
+      length(unique(x)) > 1
+    })
+  )
+
+snps_in_Maize_final <- polymolrphic_SNPs_in_maize %>%
+  filter(Polymorphic) %>%
+  mutate(Group = "Maize")
+
+snps_in_Teosinte_final <- polymorphic_SNPs_in_teosinte %>%
+  filter(Polymorphic) %>%
+  mutate(Group = "Teosinte")
+
+final_poly_snp <- bind_rows(snps_in_Maize_final, snps_in_Teosinte_final)
+
+p2 <- ggplot(final_poly_snp, aes(x = factor(Chromosome), fill = Group)) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Number of Polymorphic SNP Sites per Chromosome",
+    x = "Chromosome",
+    y = "Number of Polymorphic SNP Sites"
+  )
+p2
+#Save plot
+ggsave("output/reviewer_visuals/polymorphic_SNPs_per_chromosome.png", plot = p2, width = 8, height = 5)
+
+
+```
+
+
+Now we can see a difference. Teosinte has either the same number or more polymorphic SNPs per chromosome than maize, except for chromosome 7, where maize has more polymorphic SNPs.
+
+
+For the next four plots, we examine genotype composition in more detail. In order to do that, we reshape the maize and teosinte datasets from wide format to long format using 'pivot_longer()'. This creates a structure where each row corresponds to one SNP call for one sample. We then classify each genotype as missing, homozygous, or heterozygous.
+
+
+Using this long-format dataset, we produce the following plots: the proportion of genotype classes for each sample, the proportion of genotype classes for each group, the proportion of missing data by chromosome and group, and the proportion of genotype classes across chromosomes.
+
+
+```{r}
+
+
+##Generate the third plot (proportion of homozygous, heterozygous, and missing data in each sample) 
+
+#Reshape genotype data into long format for plotting
+Maize_Long <- maize_all_joined %>%
+  pivot_longer(
+    cols = 4:ncol(.),
+    names_to = "Sample",
+    values_to = "Genotype"
+  ) %>%
+  mutate(Group = "Maize")
+
+Teosinte_Long <- teosinte_all_joined %>%
+  pivot_longer(
+    cols = 4:ncol(.),
+    names_to = "Sample",
+    values_to = "Genotype"
+  ) %>%
+  mutate(Group = "Teosinte")
+
+Teosinte_and_Maize_Long <- bind_rows(Maize_Long, Teosinte_Long)
+
+Teosinte_and_Maize_Long <- Teosinte_and_Maize_Long %>%
+  mutate(
+    Genotype_Class = case_when(
+      Genotype %in% c("?/?") ~ "Missing",
+      Genotype %in% c("A/A", "C/C", "G/G", "T/T") ~ "Homozygous",
+      TRUE ~ "Heterozygous"
+    )
+  )
+
+p3 <- ggplot(Teosinte_and_Maize_Long, aes(x = Sample, fill = Genotype_Class)) +
+  geom_bar(position = "fill") +
+  facet_wrap(~ Group, scales = "free_x") +
+  labs(
+    title = "Proportion of Missing, Homozygous, and Heterozygous Sites",
+    x = "Sample",
+    y = "Proportion"
+  ) +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+p3
+#Save plot
+ggsave("output/reviewer_visuals/genotype_class_by_sample.png", plot = p3, width = 8, height = 5)
+
+
+```
+
+```{r}
+
+
+##Generate the fourth plot (proportion of homozygous, heterozygous, and missing data in each group) 
+proportions_per_group_summary <- Teosinte_and_Maize_Long %>%
+  count(Group, Genotype_Class) %>%
+  group_by(Group) %>%
+  mutate(Proportion = n / sum(n))
+
+p4 <- ggplot (proportions_per_group_summary, aes(x = Group, y = Proportion, fill = Genotype_Class)) +
+  geom_col(position = "fill") +
+  labs(
+    title = "Genotype Class Proportions by Group",
+    x = "Group",
+    y = "Proportion"
+  )
+p4
+#Save plot
+ggsave("output/reviewer_visuals/proportions_per_group.png", plot = p4, width = 8, height = 5)
+
+
+```
+
+
+```{r}
+
+
+# Generate the fifth plot (Missing data by chromosome and group)
+missing_by_chromosome <- Teosinte_and_Maize_Long %>%
+  mutate(Is_Missing = Genotype_Class == "Missing") %>%
+  group_by(Group, Chromosome) %>%
+  summarise(
+    Missing_Proportion = mean(Is_Missing),
+    .groups = "drop"
+  )
+
+p5 <- ggplot(missing_by_chromosome, aes(x = factor(Chromosome), y = Missing_Proportion, fill = Group)) +
+  geom_col(position = "dodge") +
+  labs(
+    title = "Proportion of Missing Data by Chromosome",
+    x = "Chromosome",
+    y = "Missing Data Proportion"
+  ) 
+p5
+#Save plot
+ggsave("output/reviewer_visuals/missing_data_per_chromosome_and_group.png", plot = p5, width = 8, height = 5)
+
+
+```
+
+```{r}
+
+
+ # Generate the sixth plot (proportion of homozygous, heterozygous, and missing data in each chromosome)
+p6 <- ggplot(Teosinte_and_Maize_Long, aes(x = as.factor(Chromosome), fill = Genotype_Class)) +
+  geom_bar(position = "fill") +
+  labs(title = "Proportion of Genotype Class Across Chromosomes", x = "Chromosome", y = "Proportion")
+p6
+
+#Save plot
+ggsave("output/reviewer_visuals/proportion_of_genotype_class_per_chromosome.png", plot = p6, width = 8, height = 5)
+
+
+```
+
+
+All plots are saved to the 'output/visuals' folder after viewing, and the chromosome-specific processed files are written to the 'output/processed_files' folder.
+
+
+

@@ -28,5 +28,5 @@ This repository contains my submission for the R assignment. It is mainly about 
 
 ## Reproducibility
 
-This analysis can be reproduced by opening `R_Assignment_Tuqa.Rmd` in RStudio and running all code chunks in order, or knitting the file to HTML. Running the analysis code will regenerate the files in `output/processed_files/` and `output/plots/`.
-These regenerated files can be compared with the versions already included in the repository after downloading or cloning it from GitHub.
+This analysis can be reproduced by opening `R_Assignment_Tuqa.Rmd` in RStudio and running all code chunks in order, or by knitting the file to HTMLL. Running the analysis code will regenerate the files in `output/reviewer_processed_files/` and `output/reviewer_visuals/`.
+These regenerated files can be compared with the versions already included in the repository after downloading or cloning it from GitHub, found in `output/processed_files/` and `output/visuals/`.
